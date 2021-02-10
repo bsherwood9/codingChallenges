@@ -12,7 +12,7 @@ module.exports = function search(grid, wordlist) {
   let words_in_grid = [];
   //way to track duplicates
   let path_hash = {};
-  //set up dictionary which stores every words under the first letter
+  //set up dictionary which stores every word under the first letter
   let word_dictionary = {};
   for (let i of wordlist) {
     !word_dictionary[i[0]]
@@ -25,9 +25,10 @@ module.exports = function search(grid, wordlist) {
       //iterate through grid, check each letter if letter is in dict
       let letter = grid[row][col].toLowerCase();
       if (word_dictionary[letter]) {
-        //if in dictionary, add words to possible list
+        //if in dictionary, take possible words from dictionary and check them.
         let possible_words = word_dictionary[letter];
-        //now search through grid with those words
+        //now search through grid at the coordinate of the first letter, compare surrounding letters
+        //  with words in possible words
         search_possible_words(row, col, possible_words, grid);
       }
     }
@@ -35,30 +36,48 @@ module.exports = function search(grid, wordlist) {
   return words_in_grid;
 
   //helper functions
-  function check_valid_word(x, y, word, path) {
-    //base case, if word has no length, word is valid
-    if (!word.length) {
-      //check if path to word already exists, if so, it is not valid.
-      if (path_hash[path]) {
-        return false;
-      } else {
-        //if it path doesn't exist, return true and add to path dict
-        path_hash[path] = true;
-        return true;
-      }
-    }
-    let letter = word[0];
+  function check_valid_word(row, col, word, path) {
+    //we already know the first letter is valid.
+    //start with the second.
+    let letter = word[1];
     let colLength = grid[0].length;
     let rowLength = grid.length;
-    for (let h = -1; h < 2; h++) {
-      for (let v = -1; v < 2; v++) {
-        if (h + x < 0 || h + x > colLength - 1) continue;
-        if (v + y < 0 || v + y > rowLength - 1) continue;
-        if (grid[x + h][y + v].toLowerCase() === letter) {
-          path.push([x + h, y + v]);
-          //found the second letter
-          //now do the whole process again
-          return check_valid_word(x + h, y + v, word.slice(1), path);
+    //check all eight cells around first coordinage
+    for (let vert = -1; vert < 2; vert++) {
+      for (let horz = -1; horz < 2; horz++) {
+        //skip if outside grid area
+        if (horz + col < 0 || horz + col > colLength - 1) continue;
+        if (vert + row < 0 || vert + row > rowLength - 1) continue;
+        if (grid[vert + row][horz + col].toLowerCase() === letter) {
+          path.push([vert + row, horz + col]);
+          // if second letter found
+          // follow path all the way down, sort of a dfs
+          let newRow = vert + row;
+          let newCol = horz + col;
+          for (let i = 2; i < word.length; i++) {
+            if (horz + newCol < 0 || horz + newCol > colLength - 1) {
+              break;
+            }
+            if (vert + newRow < 0 || vert + newRow > rowLength - 1) {
+              break;
+            }
+            //if third letter found, either add word to list, or continue to next lettter
+            if (word[i] === grid[newRow + vert][newCol + horz].toLowerCase()) {
+              path.push([vert + row, horz + col]);
+              if (i === word.length - 1) {
+                //make sure no duplicate paths/words are found.
+                if (path_hash[path]) {
+                  break;
+                } else {
+                  path_hash[path] = true;
+                  words_in_grid.push(word);
+                }
+              } else {
+                newRow = newRow + vert;
+                newCol = newCol + horz;
+              }
+            }
+          }
         }
       }
     }
@@ -68,7 +87,7 @@ module.exports = function search(grid, wordlist) {
     //look at each word individually
     for (let word of words) {
       //if word is valid, return true and push to answer array
-      if (check_valid_word(row, col, word.slice(1), [])) {
+      if (check_valid_word(row, col, word, [[row, col]])) {
         words_in_grid.push(word);
       }
     }
